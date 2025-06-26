@@ -58,21 +58,43 @@ class CheckingAccount(Account):
 import random
 
 class BankSystem:
-    bank_accounts = {}
-    #create account
+    def __init__(self):
+        self.bank_accounts = {'John Maina': 10029873, 'Jane Doe': 10029874, 'Alice Smith': 10029875}
+
     def create_account(self):
         owner_name = input("Enter your name and surname: ")
-        #generate a seven digit account number
-        suffix = random.randint(1000000, 9999999)
-        #must begin with '100'
+        suffix = random.randint(1000, 9999)
         account_number = int(f"100{suffix}")
-        print(f"Congratulations {owner_name}! You have successfully created your account.\nYour account no is {account_number}")
+        while account_number in self.bank_accounts.values():
+            suffix = random.randint(1000, 9999)
+            account_number = int(f"100{suffix}")
         self.bank_accounts[owner_name] = account_number
+        print(f"Congratulations {owner_name}! Your account number is {account_number}")
+
+    def print_all_accounts(self):
+        if not self.bank_accounts:
+            print("No accounts have been created yet.")
+        else:
+            print("All bank accounts:")
+            for name, number in self.bank_accounts.items():
+                print(f"{name}: {number}")
+
+    #find account
+    def find_account(self, account_number):
+        for name, number in self.bank_accounts.items():
+            if number == account_number:
+                print(f"Found: {name} — Account Number: {number}")
+                return
+        print("The account number does not exist.")
 
 
         
          
         
-savings_account1 = CheckingAccount(10029873, 'John Pombe', 8976, 5000)
+""" savings_account1 = CheckingAccount(10029873, 'John Pombe', 8976, 5000)
 savings_account1.balance = 10000
-print(savings_account1.withdraw(11000))
+print(savings_account1.withdraw(11000)) """
+
+bank1 = BankSystem()
+bank1.print_all_accounts()
+bank1.find_account(10029873)
