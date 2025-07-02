@@ -86,44 +86,93 @@ class Library:
         else:
             print("This book does not exist.")
 
-    def borrow_book(self, user_name, book_title):
-        user = self.users.get(user_name)
-        book = self.books.get(book_title)
 
-        if not user:
-            print("User not found.")
-            return
-        if not book:
-            print("Book not found.")
-            return
-        if book.is_borrowed:
-            print(f"'{book.title}' is already borrowed.")
-            return
-        if len(user.borrowed_books) >= 2:
-            print("You cannot borrow more than 2 books.")
-            return
+    def borrow_book(self, user_id, book_id):
+        try:
+            conn = get_connection()
+            cursor = conn.cursor()
 
-        user.borrowed_books.append(book)
-        book.is_borrowed = True
-        print(f"{user.name} has borrowed '{book.title}'.")
+            # Check if user exists
+            cursor.execute("SELECT * FROM Users WHERE user_id = %s", (user_id,))
+            if not cursor.fetchone():
+                print("User not found.")
+                return
 
-    def return_book(self, user_name, book_title):
-        user = self.users.get(user_name)
-        book = self.books.get(book_title)
+            # Check if book exists
+            cursor.execute("SELECT is_borrowed FROM books WHERE book_id = %s", (book_id,))
+            result = cursor.fetchone()
+            if not result:
+                print("Book not found.")
+                return
 
-        if not user:
-            print("User not found.")
-            return
-        if not book:
-            print("Book not found in the library catalog.")
-            return
-        if book not in user.borrowed_books:
-            print(f"{user.name} didn't borrow this book.")
-            return
+            is_borrowed = result[0]
+            if is_borrowed:
+                print("Book is already borrowed.")
+                return
 
-        user.borrowed_books.remove(book)
-        book.is_borrowed = False
-        print(f"{user.name} has returned '{book.title}'.")
+            # Check how many books this user already borrowed
+            cursor.execute("SELECT COUNT(*) FROM borrowed_books WHERE user_id = %s", (user_id,))
+            borrowed_count = cursor.fetchone()[0]
+            if borrowed_count >= 2:
+                print("Cannot borrow more than 2 books.")
+                return
+
+            # Borrow the book
+            cursor.execute("INSERT INTO borrowed_books (user_id, book_id) VALUES (%s, %s)", (user_id, book_id))
+            cursor.execute("UPDATE books SET is_borrowed = TRUE WHERE book_id = %s", (book_id,))
+            conn.commit()
+
+            print("Book borrowed successfully.")
+
+        except Exception as e:
+            print("Error borrowing book:", e)
+
+        finally:
+            conn.close()
+
+    def return_book(self, user_id, book_id):
+        try:
+            conn = get_connection()
+            cursor = conn.cursor()
+
+            # Check if user exists
+            cursor.execute("SELECT * FROM users WHERE user_id = %s", (user_id,))
+            if not cursor.fetchone():
+                print("User not found.")
+                return
+
+            # Check if book exists
+            cursor.execute("SELECT is_borrowed FROM books WHERE book_id = %s", (book_id,))
+            result = cursor.fetchone()
+            if not result:
+                print("Book not found.")
+                return
+
+            is_borrowed = result[0]
+            if not is_borrowed:
+                print("This book is not currently borrowed.")
+                return
+
+            # Check if user actually borrowed this book
+            cursor.execute("SELECT * FROM borrowed_books WHERE user_id = %s AND book_id = %s", (user_id, book_id))
+            if not cursor.fetchone():
+                print("This user did not borrow this book.")
+                return
+
+            # Delete borrow record and mark as returned
+            cursor.execute("DELETE FROM borrowed_books WHERE user_id = %s AND book_id = %s", (user_id, book_id))
+            cursor.execute("UPDATE books SET is_borrowed = FALSE WHERE book_id = %s", (book_id,))
+
+            conn.commit()
+            print("Book returned successfully.")
+
+        except Exception as e:
+            print("Error returning book:", e)
+
+        finally:
+            conn.close()
+
+
 
     def print_all_books(self):
         print("\n--- All Books in Library ---")
@@ -146,4 +195,6 @@ class Library:
             
         
 cursor = Library()
-cursor.add_book("The Catcher in the Rye", "J.D. Salinger")
+""" cursor.borrow_book(456, 1)  
+cursor.borrow_book(456, 3)  """
+cursor.return_book(456, 1) 
