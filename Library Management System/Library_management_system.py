@@ -1,4 +1,7 @@
 import random
+# custom module to handle database connection
+from db_config import get_connection
+
 
 class Book:
     def __init__(self, title, author):
@@ -51,12 +54,30 @@ class Library:
         self.users[name] = User(name, age, user_id)
         print(f"Congratulations {name}! Your user ID is {user_id}")
 
+
     def add_book(self, book_name, author):
-        if book_name in self.books:
-            print("This book already exists.")
-        else:
-            self.books[book_name] = Book(book_name, author)
-            print("Book added successfully!")
+        try:
+            conn = get_connection()
+            cursor = conn.cursor()
+
+            # Check if book already exists (by title and author)
+            cursor.execute("SELECT * FROM books WHERE title = %s AND author = %s", (book_name, author))
+            if cursor.fetchone():
+                print("This book already exists.")
+            else:
+                cursor.execute(
+                    "INSERT INTO books (title, author, is_borrowed) VALUES (%s, %s, %s)",
+                    (book_name, author, False)
+                )
+                conn.commit()
+                print("Book added successfully!")
+
+        except Exception as e:
+            print("Error adding book:", e)
+
+        finally:
+            conn.close()
+
 
     def remove_book(self, book_name):
         if book_name in self.books:
@@ -125,4 +146,4 @@ class Library:
             
         
 cursor = Library()
-cursor.show_user_borrowed_books('Emmanuel')
+cursor.add_book("The Catcher in the Rye", "J.D. Salinger")
