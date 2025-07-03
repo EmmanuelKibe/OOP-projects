@@ -28,20 +28,8 @@ class User:
 
 class Library:
     def __init__(self):
-        self.users = {
-            'Emmanuel': User('Emmanuel', 20, 456),
-            'John': User('John', 28, 234),
-            'Alice': User('Alice', 19, 364)
-        }
-
-        self.books = {
-            "The Great Gatsby": Book("The Great Gatsby", "Scott F Fitzgerald"),
-            "Pachinko": Book("Pachinko", "Min Jin Lee"),
-            "A Little Lie": Book("A Little Lie", "Max Turner"),
-            "Say You'll Remember Me": Book("Say You'll Remember Me", "Abby Jimenez"),
-            "Vicious": Book("Vicious", "L.J. Shen")
-        }
-
+        pass
+    
     def create_user_account(self):
         name = input("Enter your name: ")
         age = int(input("Enter your age: "))
@@ -79,14 +67,27 @@ class Library:
             conn.close()
 
 
-    def remove_book(self, book_name):
-        if book_name in self.books:
-            del self.books[book_name]
-            print(f"'{book_name}' removed from the library.")
-        else:
-            print("This book does not exist.")
+    def remove_book(self, title, author):
+        try:
+            conn = get_connection()
+            cursor = conn.cursor()
 
+            # Check if book already exists (by title and author)
+            cursor.execute("SELECT * FROM books WHERE title = %s AND author = %s", (title, author))
+            if cursor.fetchone():
+                cursor.execute("DELETE FROM books WHERE title = %s AND author = %s", (title, author))
+                conn.commit()
+                print("Book removed successfuly")
+            else:
+                print("This book does not exist")
+                
 
+        except Exception as e:
+            print("Error adding book:", e)
+
+        finally:
+            conn.close()
+        
     def borrow_book(self, user_id, book_id):
         try:
             conn = get_connection()
@@ -172,29 +173,75 @@ class Library:
         finally:
             conn.close()
 
-
-
     def print_all_books(self):
-        print("\n--- All Books in Library ---")
-        for book in self.books.values():
-            print(book)
+        try:
+            print("\n--- All Books in Library ---")
+
+            conn = get_connection()
+            cursor = conn.cursor()
+
+            cursor.execute("SELECT book_id, title, author, is_borrowed FROM books;")
+            all_books = cursor.fetchall()
+
+            if not all_books:
+                print("There are currently no books in the library")
+                return
+
+            for book_id, title, author, is_borrowed in all_books:
+                status = "Borrowed" if is_borrowed else "Available"
+                print(f"ID: {book_id}, Title: '{title}', Author: {author}, Status: {status}")
+
+        except Exception as e:
+            print("Error printing all books", e)
+
+        finally:
+            conn.close()
 
     def print_all_users(self):
-        print("\n--- Registered Users ---")
-        for user in self.users.values():
-            print(f"{user.name} (ID: {user.user_id}, Age: {user.age})")
+        try:
+            print("\n--All registered users--")
 
-    def show_user_borrowed_books(self, user_name):
-        user = self.users.get(user_name)
-        if not user:
-            print("User not found.")
-            return
-        print(f"{user.name}'s borrowed books: {user.list_borrowed_books()}")
+            conn = get_connection()
+            cursor = conn.cursor()
 
+            cursor.execute("SELECT * FROM Users;")
+            all_users = cursor.fetchall()
+
+            for user_id, user_name, user_age in all_users:
+                print(f"{user_id} - {user_name} - {user_age}")
+
+        except Exception as e:
+            print(f"Error printing all users.\n{e}")
+
+        finally:
+            conn.close()
+
+    def show_user_borrowed_books(self, user_id):
+        try:
+            print("\n--Borrowed books--")
+
+            conn = get_connection()
+            cursor = conn.cursor()
+
+            cursor.execute("SELECT * FROM borrowed_books WHERE user_id = %s",(user_id,))
+            borrowed_check = cursor.fetchall()
+            if not borrowed_check:
+                print("This user has not borrowed any books")
+                return
             
+            cursor.execute("SELECT borrowed_books.book_id, books.title FROM borrowed_books INNER JOIN books ON borrowed_books.book_id = books.book_id WHERE borrowed_books.user_id = %s;", (user_id,))
+            borrowed_books = cursor.fetchall()
+            for book in borrowed_books:
+                book_id, title = book
+                print(f"{book_id} - {title}")
+
+        except Exception as e:
+            print("Error in fetching borrowed books", e)
+
+        finally:
+            conn.close()
             
         
 cursor = Library()
-""" cursor.borrow_book(456, 1)  
-cursor.borrow_book(456, 3)  """
-cursor.return_book(456, 1) 
+
+cursor.add_book('Pachinko', 'Min Jin Lee')
