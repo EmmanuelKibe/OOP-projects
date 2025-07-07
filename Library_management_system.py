@@ -29,18 +29,34 @@ class User:
 class Library:
     def __init__(self):
         pass
-    
+
     def create_user_account(self):
         name = input("Enter your name: ")
         age = int(input("Enter your age: "))
 
         # Generate unique user ID
         user_id = random.randint(100, 999)
-        while user_id in [user.user_id for user in self.users.values()]:
+        while True:
+            conn = get_connection()
+            cursor = conn.cursor()
             user_id = random.randint(100, 999)
+            cursor.execute("SELECT * FROM users WHERE user_id = %s", (user_id,))
+            if not cursor.fetchone():  # if None, it's unique
+                break 
 
-        self.users[name] = User(name, age, user_id)
-        print(f"Congratulations {name}! Your user ID is {user_id}")
+        try:
+            conn = get_connection()
+            cursor = conn.cursor()
+
+            cursor.execute("INSERT INTO Users(user_id, user_name, user_age) VALUES(%s, %s, %s)", (user_id, name, age))
+            conn.commit()
+            print("User added successfully")
+
+        except Exception as e:
+            print("Error in adding user", e)
+
+        finally:
+            conn.close()
 
 
     def add_book(self, book_name, author):
@@ -244,4 +260,4 @@ class Library:
         
 cursor = Library()
 
-cursor.add_book('Pachinko', 'Min Jin Lee')
+cursor.create_user_account()
